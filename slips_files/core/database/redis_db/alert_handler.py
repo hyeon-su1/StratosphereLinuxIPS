@@ -311,8 +311,17 @@ class AlertHandler:
 
                 entity.CNAME = domain_info.get("CNAME", [])
                 entity.DNS_resolution = domain_info.get("IPs", [])
-                entity.TI = domain_info.get("threatintelligence", {}).get(
-                    "source"
+                ti_info = domain_info.get("threatintelligence", {})
+                if isinstance(ti_info, str):
+                    # the TI info may be stored as a str, see #1873
+                    try:
+                        ti_info = json.loads(ti_info)
+                    except json.JSONDecodeError:
+                        ti_info = {"source": ti_info}
+                entity.TI = (
+                    ti_info.get("source")
+                    if isinstance(ti_info, dict)
+                    else None
                 )
                 # if any of the domain's ips have an asn, set it here to
                 # check if it's whitelisted later
