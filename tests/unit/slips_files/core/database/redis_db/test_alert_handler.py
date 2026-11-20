@@ -779,3 +779,44 @@ def test_get_tw_limits_recovers_when_redis_anchor_is_missing(
 
     assert start == expected_start
     assert end == expected_start + alert_handler.width
+
+
+
+@pytest.mark.parametrize(
+    "ti_value, expected_ti",
+    [
+        # normal case: the TI info is a dict
+        ({"source": "feed.csv"}, "feed.csv"),
+        # TI info stored as a json str
+        ('{"source": "feed.csv"}', "feed.csv"),
+        # TI info stored as a plain str (issue #1873)
+        ("feed.csv", "feed.csv"),
+    ],
+)
+def test_get_more_info_about_evidence_with_str_ti(
+    ti_value: object, expected_ti: str
+) -> None:
+    db = ModuleFactory().create_alert_handler_obj()
+    db.get_domain_data = Mock(return_value={"threatintelligence": ti_value})
+    db.get_ip_identification = Mock(return_value={})
+    db.get_asn_info = Mock(return_value=None)
+    evidence = Evidence(
+        evidence_type=EvidenceType.ANOMALOUS_FLOW,
+        description="https anomaly",
+        attacker=Attacker(
+            direction=Direction.SRC, ioc_type=IoCType.IP, value="192.168.1.2"
+        ),
+        victim=Victim(
+            direction=Direction.DST, ioc_type=IoCType.DOMAIN, value="evil.com"
+        ),
+        threat_level=ThreatLevel.LOW,
+        profile=ProfileID("192.168.1.2"),
+        timewindow=TimeWindow(1),
+        uid=[],
+        timestamp="1728417813.8868346",
+    )
+
+    evidence = db._get_more_info_about_evidence(evidence)
+
+    assert evidence.victim.TI == expected_ti
+    
